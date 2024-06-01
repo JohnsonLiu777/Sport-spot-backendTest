@@ -1,0 +1,19 @@
+{
+  "name": "backend-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start-dev": "nodemon src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/hapi": "^21.3.9",
+    "firebase-admin": "^12.1.1",
+    "hapi": "^18.1.0",
+    "nodemon": "^3.1.2"
+  }
+}
