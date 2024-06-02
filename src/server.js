@@ -14,28 +14,12 @@ const init = async () => {
         host: 'localhost'
     });
 
-    // Middleware untuk otorisasi berdasarkan role
-    const checkRole = (role) => {
-        return async (request, h) => {
-            const idToken = request.headers.authorization.split('Bearer ')[1];
-            try {
-                const decodedToken = await admin.auth().verifyIdToken(idToken);
-                if (decodedToken.role !== role) {
-                    return h.response({ message: 'Access denied' }).code(403);
-                }
-                return h.continue;
-            } catch (error) {
-                return h.response({ message: 'Unauthorized' }).code(401);
-            }
-        };
-    };
-
     // Endpoint registrasi
     server.route({
         method: 'POST',
         path: '/register',
         handler: async (request, h) => {
-            const { email, password, displayName, role } = request.payload;
+            const { email, password, displayName } = request.payload;
 
             try {
                 const userRecord = await admin.auth().createUser({
@@ -44,16 +28,19 @@ const init = async () => {
                     displayName: displayName,
                 });
 
-                // Set custom claims (role)
-                await admin.auth().setCustomUserClaims(userRecord.uid, { role: role });
+                // Menambahkan data pengguna ke Firestore
+                await db.collection('users').doc(userRecord.uid).set({
+                    email: email,
+                    displayName: displayName,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
 
                 return h.response({
                     message: 'User created successfully',
                     user: {
                         uid: userRecord.uid,
                         email: userRecord.email,
-                        displayName: userRecord.displayName,
-                        role: role
+                        displayName: userRecord.displayName
                     }
                 }).code(201);
             } catch (error) {
@@ -96,32 +83,29 @@ const init = async () => {
         }
     });
 
-    // Endpoint untuk menambahkan data lapangan, hanya untuk pemilik lapangan
-    server.route({
-        method: 'POST',
-        path: '/addField',
-        options: {
-            pre: [checkRole('owner')],
-            handler: async (request, h) => {
-                const { fieldName, location, price, ownerId } = request.payload;
+    // Endpoint untuk menambahkan data lapangan, tersedia untuk semua pengguna yang terautentikasi
+    // server.route({
+    //     method: 'POST',
+    //     path: '/addField',
+    //     handler: async (request, h) => {
+    //         const { fieldName, location, price, userId } = request.payload;
 
-                try {
-                    const docRef = db.collection('fields').doc();
-                    await docRef.set({
-                        fieldName: fieldName,
-                        location: location,
-                        price: price,
-                        ownerId: ownerId,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp()
-                    });
+    //         try {
+    //             const docRef = db.collection('fields').doc();
+    //             await docRef.set({
+    //                 fieldName: fieldName,
+    //                 location: location,
+    //                 price: price,
+    //                 userId: userId,  // Menggunakan userId dari payload
+    //                 createdAt: admin.firestore.FieldValue.serverTimestamp()
+    //             });
 
-                    return h.response({ message: 'Field added successfully' }).code(201);
-                } catch (error) {
-                    return h.response({ message: 'Error adding field', error: error.message }).code(400);
-                }
-            }
-        }
-    });
+    //             return h.response({ message: 'Field added successfully' }).code(201);
+    //         } catch (error) {
+    //             return h.response({ message: 'Error adding field', error: error.message }).code(400);
+    //         }
+    //     }
+    // });
 
     await server.start();
     console.log('Server running on %s', server.info.uri);
